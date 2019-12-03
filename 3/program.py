@@ -3,25 +3,36 @@
 import collections
 
 Coordinate = collections.namedtuple('Coordinate', 'x y')
-CoordinateWithSteps = collections.namedtuple('Coordinate', 'x y steps')
 
-def get_all_horizontal_coords(start, end):
-    lowest = min(start.x, end.x)
-    highest = max(start.x, end.x)
-    result = set()
-    #print("HORIZONTAL lowest={}, highest={}".format(lowest, highest))
-    for x in range(lowest, highest):
-        result.add(Coordinate(x=x, y=start.y))
-    return result
+def get_all_horizontal_coords(start, end, visited_coords, step_count):
 
-def get_all_vertical_coords(start, end):
-    lowest = min(start.y, end.y)
-    highest = max(start.y, end.y)
-    result = set()
-    #print("VERTICAL lowest={}, highest={}".format(lowest, highest))
-    for y in range(lowest, highest):
-        result.add(Coordinate(x=start.x, y=y))
-    return result
+    if end.x < start.x:
+        loop_range = range(start.x - 1, end.x - 1, -1)
+    else:
+        loop_range = range(start.x + 1, end.x + 1, 1)
+
+    step_counter = step_count
+    for x in loop_range:
+        if Coordinate(x=x, y=start.y) not in visited_coords:
+            visited_coords[Coordinate(x=x, y=start.y)] = step_counter
+        step_counter = step_counter + 1
+
+    return step_counter
+
+def get_all_vertical_coords(start, end, visited_coords, step_count):
+
+    if end.y < start.y:
+        loop_range = range(start.y - 1, end.y - 1, -1)
+    else:
+        loop_range = range(start.y + 1, end.y + 1, 1)
+        
+    step_counter = step_count
+    for y in loop_range:
+        if Coordinate(x=start.x, y=y) not in visited_coords:
+            visited_coords[Coordinate(x=start.x, y=y)] = step_counter
+        step_counter = step_counter + 1
+
+    return step_counter
 
 def get_end_coordinate(start, new_segment):
     direction = new_segment[0]
@@ -41,20 +52,22 @@ def get_end_coordinate(start, new_segment):
     return end
 
 
-def get_segment_coordinates(start, end):
-    result = set()
+def get_segment_coordinates(start, end, visited_coords, step_count):
     if start.x == end.x:
-        result = get_all_vertical_coords(start, end)
+        step_counter = get_all_vertical_coords(start, end, visited_coords, step_count)
     elif start.y == end.y:
-        result = get_all_horizontal_coords(start, end)
+        step_counter = get_all_horizontal_coords(start, end, visited_coords, step_count)
 
-    return result
+    return step_counter 
 
 def get_trace(wire, start):
-    visited_coords = set()
+    step_count = 1
+
+    visited_coords = {}
     for segment in wire:
         end = get_end_coordinate(start, segment)
-        visited_coords = visited_coords.union(get_segment_coordinates(start, end))
+        old_step_delta = step_count
+        step_count = get_segment_coordinates(start, end, visited_coords, step_count)
         start = end
     
     return visited_coords
@@ -70,16 +83,15 @@ def a(input_data):
     wire_1_visited = get_trace(wire_1, start)
     wire_2_visited = get_trace(wire_2, start)
 
-    both_visited = wire_1_visited.intersection(wire_2_visited)
+    both_visited = set(wire_1_visited.keys()).intersection(set(wire_2_visited.keys()))
     sorted_visited = sorted(both_visited, key = lambda coord: manhattan_distance(start, coord))
+
+    step_per_intersection = []
+    for coord in both_visited:
+        step_per_intersection.append(wire_1_visited[coord] + wire_2_visited[coord])
+
     print("A, answer: {}".format(manhattan_distance(start, sorted_visited[0])))
-
-def b(input_data):
-    start = Coordinate(x=0, y=0)
-    wire_1 = input_data[0]
-    wire_2 = input_data[1]
-
-
+    print("B, answer: {}".format(min(step_per_intersection)))
 
 
 if __name__ == '__main__':
@@ -87,7 +99,6 @@ if __name__ == '__main__':
     input_data = [x.split(',') for x in f.readlines()]
     
     a(input_data)
-    b(input_data)
     
 
 
