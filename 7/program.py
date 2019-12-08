@@ -100,7 +100,6 @@ def get_program_output():
     return PROGRAM_OUTPUT_QUEUE.get()
 
 def add_program_input(item):
-    print("ADDING INPUT: {}".format(item))
     return PROGRAM_INPUT_QUEUE.put(item)
 
 def get_program_input():
@@ -108,9 +107,12 @@ def get_program_input():
         raise(RuntimeError("Input Queue is empty"))
     return PROGRAM_INPUT_QUEUE.get()
 
+def clear_program_input():
+    PROGRAM_INPUT_QUEUE.queue.clear()
+
 def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
 
-    #print("Processing op_code: {}".format(op_code))
+    output_written = False
 
     if op_code is PROGRAM_ADD_CODE:
         val1 = get_parameter_value(parameter_modes, 1, program, address_pointer)
@@ -132,7 +134,6 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
         destination = program[address_pointer+1]
         if mode == NON_INTERACTIVE_MODE:  
             input_data = get_program_input()
-            print("INSTRUCTION: Input = {}".format(input_data))
         elif mode == INTERACTIVE_MODE: 
             input_data = input("Enter your input value : ")
         else:
@@ -143,9 +144,10 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
 
     elif op_code is PROGRAM_OUTPUT_CODE:
         destination = program[address_pointer+1]
-        print("OPCODE_4: Value={}".format(program[destination]))
+        #print("OPCODE_4: Value={}".format(program[destination]))
         set_program_output(program[destination])
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
+        output_written = True
 
     elif op_code is PROGRAM_JUMP_TRUE_CODE:
         val1 = get_parameter_value(parameter_modes, 1, program, address_pointer)
@@ -192,21 +194,24 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
     else:
         raise RuntimeError("op_code: {} is not a supported operation".format(op_code))
     
-    return program, address_pointer
+    return program, address_pointer, output_written
 
-def run_program(program, mode):
-    address_pointer = 0
-
+def run_program(program, mode, address_pointer=0):
+    done = False
     while(True):
         op_code, parameter_modes = parse_instruction(program, address_pointer)
         if op_code in KNOWN_OPERATOR_CODES:
-            program, address_pointer = run_instruction(program, address_pointer, op_code, parameter_modes, mode) 
+            program, address_pointer, output_written = run_instruction(program, address_pointer, op_code, parameter_modes, mode) 
+            if output_written:
+                break
         elif op_code is PROGRAM_STOP_CODE:
+            done = True
             break
         else:
             raise RuntimeError("Do not recognize instruction with code: {}, knows codes are {}".format(op_code, KNOWN_OPERATOR_CODES))
             
-    return program
+    return program, done, address_pointer
+
 
 def run_program_amplifier(program, phase, input_signal):
 
@@ -233,13 +238,47 @@ def a(input_data):
             phase = x_list
             output = run_program_amplifier(input_data.copy(), phase, start_input)
             max_throttle = max(max_throttle, output)
-            print("candidate, output={}, phase={}".format(output, phase))
 
-    
     print("A, answer={}".format(max_throttle))
 
+def run_feedback_program_amplifier(program, phase, input_signal):
+    programs = [program.copy(), program.copy(), program.copy(), program.copy(), program.copy()]
+    address_pointers = [0,0,0,0,0]
+    first_run = True
+    done = False
+
+    print("SUM={}".format(sum([sum(x) for x in programs])))
+    while not done:
+        for index, program in enumerate(programs):
+            if first_run:
+                add_program_input(phase[index])
+
+            add_program_input(input_signal)
+            programs[index], done, address_pointers[index] = run_program(program, NON_INTERACTIVE_MODE, address_pointers[index])
+            if not done:
+                output = get_program_output()
+                input_signal = output
+        
+        first_run = False
+    
+    return output
+
 def b(input_data):
-    pass
+    max_throttle = 0
+    start_input = 0
+    for num in range(0,98766):
+        clear_program_input()
+        x_list = [int(x) for x in str(num)]
+        if len(x_list) == 4:
+            x_list.append(0)
+
+        if 5 in x_list and 6 in x_list and 7 in x_list and 8 in x_list and 9 in x_list:
+            phase = x_list
+            output = run_feedback_program_amplifier(input_data, phase, start_input)
+            max_throttle = max(max_throttle, output)
+            print("candidate, output={}, phase={}".format(output, phase))
+            
+    print("A, answer={}".format(max_throttle))
 
 if __name__ == '__main__':
     f = open("input.txt", "r")
