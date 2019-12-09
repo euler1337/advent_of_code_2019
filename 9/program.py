@@ -19,6 +19,7 @@ PROGRAM_JUMP_TRUE_CODE=5
 PROGRAM_JUMP_FALSE_CODE=6
 PROGRAM_LESS_THAN_CODE=7
 PROGRAM_EQUALS_CODE=8
+PROGRAM_SET_RELATIVE_BASE_CODE=9
 
 PROGRAM_STOP_CODE=99
 
@@ -30,6 +31,7 @@ KNOWN_OPERATOR_CODES = [PROGRAM_ADD_CODE,
                         PROGRAM_JUMP_FALSE_CODE,
                         PROGRAM_LESS_THAN_CODE,
                         PROGRAM_EQUALS_CODE,
+                        PROGRAM_SET_RELATIVE_BASE_CODE
 ]
 
 OPERATOR_NUMBER_OF_PARAMETERS = {
@@ -41,13 +43,15 @@ OPERATOR_NUMBER_OF_PARAMETERS = {
     PROGRAM_JUMP_FALSE_CODE : 2,
     PROGRAM_LESS_THAN_CODE : 3,
     PROGRAM_EQUALS_CODE : 3,
-    PROGRAM_STOP_CODE : 0
+    PROGRAM_STOP_CODE : 0,
+    PROGRAM_SET_RELATIVE_BASE_CODE : 1
     }
 
 
 PROGRAM_OUTPUT_QUEUE = queue.Queue()
 PROGRAM_INPUT_QUEUE = queue.Queue()
 PROGRAM_RELATIVE_BASE = {}
+OUT_OF_RANGE_VALUES = {}
 
 NON_INTERACTIVE_MODE = 'NON_INTERACTIVE'
 INTERACTIVE_MODE = 'INTERACTIVE'
@@ -59,7 +63,7 @@ def get_address_pointer_increment(op_code):
     return OPERATOR_NUMBER_OF_PARAMETERS[int(op_code)] + 1
 
 def parse_instruction(program, address_pointer):
-    data = reverse_string(str(program[address_pointer]))
+    data = reverse_string(str(read_data(program, address_pointer)))
 
     op_code = int(reverse_string(data[:2]))
     parameter_modes = [0] * OPERATOR_NUMBER_OF_PARAMETERS[op_code]
@@ -89,16 +93,44 @@ def get_parameter_value(parameter_modes, parameter_index, program, address_point
         raise RuntimeError("parameter mode is not recognized: {}".format(parameter_modes[parameter_index-1]))
     return int(val)
 
+
+
+def read_data(program, address):
+    #print("READ data from address={}".format(address))
+    if address > len(program) :
+        if address in OUT_OF_RANGE_VALUES:
+            return OUT_OF_RANGE_VALUES[address]
+        else:
+            return 0
+    else:
+        return program[address]
+
+def write_data(mode, program, address, value):
+    
+    if is_positional(mode):
+        write_address = address
+    elif is_relative(mode):
+        write_address = address + get_relative_base()
+    else:
+        raise(RuntimeError("NON SUPPORTED WRITE MODE: {}".format(mode)))
+
+    if write_address > len(program) :
+        OUT_OF_RANGE_VALUES[write_address] = value
+    else:
+        program[write_address] = value
+
+    #print("Write value {} to address: {}, program: {}".format(value, write_address, program))
+    
 def get_positional_value(program, address):
-    target_address = program[address]
-    return program[target_address]
+    target_address = read_data(program, address)
+    return read_data(program, target_address)
 
 def get_immediate_value(program, address):
-    return program[address]
+    return read_data(program, address)
 
 def get_relative_value(program, address):
-    target_address = program[address] + get_relative_base()
-    return program[target_address]
+    target_address = read_data(program, address + get_relative_base()) 
+    return read_data(program, target_address)
 
 def set_program_output(item):
     PROGRAM_OUTPUT_QUEUE.put(item)
@@ -120,7 +152,8 @@ def clear_program_input():
     PROGRAM_INPUT_QUEUE.queue.clear()
 
 def set_relative_base(value, program_name = "default"):
-    PROGRAM_RELATIVE_BASE[program_name] = value
+    PROGRAM_RELATIVE_BASE[program_name] = PROGRAM_RELATIVE_BASE[program_name] + value
+    print("SET RELATIVE BASE TO: {}".format(PROGRAM_RELATIVE_BASE[program_name]))
 
 def get_relative_base(program_name = "default"):
     return PROGRAM_RELATIVE_BASE[program_name]
@@ -129,24 +162,28 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
 
     output_written = False
 
+    #print("RUNNING INSTRUCTION: op_code={}".format(op_code))
+
     if op_code is PROGRAM_ADD_CODE:
         val1 = get_parameter_value(parameter_modes, 1, program, address_pointer)
         val2 = get_parameter_value(parameter_modes, 2, program, address_pointer)
         value = val1 + val2
-        destination = program[address_pointer+3]
-        program[destination] = value
+        destination = read_data(program, address_pointer+3)
+        write_data(parameter_modes[2], program, destination, value)
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
 
     elif op_code is PROGRAM_MULT_CODE:
         val1 = get_parameter_value(parameter_modes, 1, program, address_pointer)
         val2 = get_parameter_value(parameter_modes, 2, program, address_pointer)
         value = val1 * val2
-        destination = program[address_pointer+3]
-        program[destination] = value
+        destination = read_data(program, address_pointer+3)
+        write_data(parameter_modes[2], program, destination, value)
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
 
     elif op_code is PROGRAM_INPUT_CODE:
-        destination = program[address_pointer+1]
+        #dest = get_parameter_value(parameter_modes, 1, program, address_pointer)
+        destination = read_data(program, address_pointer+1)
+
         if mode == NON_INTERACTIVE_MODE:  
             input_data = get_program_input()
         elif mode == INTERACTIVE_MODE: 
@@ -154,13 +191,13 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
         else:
             raise(RuntimeError("DID NOT RECOGNIZE MODE: {}".format(mode)))
             
-        program[destination] = input_data 
+        write_data(parameter_modes[0], program, destination, input_data) 
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
 
     elif op_code is PROGRAM_OUTPUT_CODE:
-        destination = program[address_pointer+1]
-        #print("OPCODE_4: Value={}".format(program[destination]))
-        set_program_output(program[destination])
+        output_address = get_parameter_value(parameter_modes, 1, program, address_pointer)
+        set_program_output(output_address)
+        print("OUTPUT Value={}, address_ptr={}".format(read_data(program, output_address), address_pointer))
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
         output_written = True
 
@@ -184,12 +221,12 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
         val1 = get_parameter_value(parameter_modes, 1, program, address_pointer)
         val2 = get_parameter_value(parameter_modes, 2, program, address_pointer)
 
-        destination = program[address_pointer+3]
+        destination = read_data(program, address_pointer+3)
             
         if val1 < val2:
-            program[destination] = 1
+            write_data(parameter_modes[2], program, destination, 1)
         else:
-            program[destination] = 0
+            write_data(parameter_modes[2], program, destination, 0)
         
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
 
@@ -197,13 +234,18 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
         val1 = get_parameter_value(parameter_modes, 1, program, address_pointer)
         val2 = get_parameter_value(parameter_modes, 2, program, address_pointer)
 
-        destination = program[address_pointer+3]
+        destination = read_data(program, address_pointer+3)
             
         if val1 == val2:
-            program[destination] = 1
+            write_data(parameter_modes[2], program, destination, 1)
         else:
-            program[destination] = 0
+            write_data(parameter_modes[2], program, destination, 0)
 
+        address_pointer = address_pointer + get_address_pointer_increment(op_code)
+
+    elif op_code is PROGRAM_SET_RELATIVE_BASE_CODE:
+        val = get_parameter_value(parameter_modes, 1, program, address_pointer)
+        set_relative_base(val)
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
 
     else:
@@ -231,9 +273,11 @@ def a(input_data):
     # First input = phase setting
     # Second input = input signal (output from previous program)
 
-    print(input_data)
-
-
+    address_pointer = 0
+    program = input_data
+    done = False
+    while not done:
+        program, done, address_pointer = run_program(program, INTERACTIVE_MODE, address_pointer)
 
 def b(input_data):
     pass
@@ -242,7 +286,8 @@ if __name__ == '__main__':
     f = open("input.txt", "r")
     input_data = f.readline().split(',')
     input_data = [int(x) for x in input_data]
-    
+    PROGRAM_RELATIVE_BASE["default"] = 0
+
     a(input_data.copy())
     b(input_data.copy())
     
