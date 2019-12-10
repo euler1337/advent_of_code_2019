@@ -129,7 +129,10 @@ def get_immediate_value(program, address):
     return read_data(program, address)
 
 def get_relative_value(program, address):
-    target_address = read_data(program, address + get_relative_base()) 
+    relative_address = read_data(program, address) 
+    target_address = relative_address + get_relative_base()
+    
+    #print("RELATIVE READ: Target-address={},relative-address={}, base={} value={}".format(target_address, relative_address,get_relative_base(),read_data(program, target_address)))
     return read_data(program, target_address)
 
 def set_program_output(item):
@@ -153,7 +156,7 @@ def clear_program_input():
 
 def set_relative_base(value, program_name = "default"):
     PROGRAM_RELATIVE_BASE[program_name] = PROGRAM_RELATIVE_BASE[program_name] + value
-    print("SET RELATIVE BASE TO: {}".format(PROGRAM_RELATIVE_BASE[program_name]))
+    #print("SET RELATIVE BASE TO: {}".format(PROGRAM_RELATIVE_BASE[program_name]))
 
 def get_relative_base(program_name = "default"):
     return PROGRAM_RELATIVE_BASE[program_name]
@@ -195,9 +198,10 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
 
     elif op_code is PROGRAM_OUTPUT_CODE:
-        output_address = get_parameter_value(parameter_modes, 1, program, address_pointer)
-        set_program_output(output_address)
-        print("OUTPUT Value={}, address_ptr={}".format(read_data(program, output_address), address_pointer))
+        #output_address = read_data(program, address_pointer+1)
+        output_value = get_parameter_value(parameter_modes, 1, program, address_pointer)
+        set_program_output(output_value)
+        print("OUTPUT Value={}, output_address={}".format(output_value, address_pointer))
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
         output_written = True
 
