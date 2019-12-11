@@ -98,7 +98,7 @@ def get_parameter_value(parameter_modes, parameter_index, program, address_point
 
 def read_data(program, address):
     #print("READ data from address={}".format(address))
-    if address > len(program) :
+    if address >= len(program) :
         if address in OUT_OF_RANGE_VALUES:
             return OUT_OF_RANGE_VALUES[address]
         else:
@@ -115,7 +115,7 @@ def write_data(mode, program, address, value):
     else:
         raise(RuntimeError("NON SUPPORTED WRITE MODE: {}".format(mode)))
 
-    if write_address > len(program) :
+    if write_address >= len(program) :
         OUT_OF_RANGE_VALUES[write_address] = value
     else:
         program[write_address] = value
@@ -166,7 +166,7 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
 
     output_written = False
 
-    #print("RUNNING INSTRUCTION: op_code={}".format(op_code))
+    print("RUNNING INSTRUCTION: op_code={}".format(op_code))
 
     if op_code is PROGRAM_ADD_CODE:
         val1 = get_parameter_value(parameter_modes, 1, program, address_pointer)
@@ -299,6 +299,7 @@ def set_color_input(coordinate):
         COLOR[coordinate] = black()
         color =  black()
     
+    print("Set input to: {}".format(color))
     add_program_input(color)
 
 
@@ -359,56 +360,57 @@ def print_direction(direction):
         return "LEFT"
 
 def a(input_data):
-    # First input = phase setting
-    # Second input = input signal (output from previous program)
-
     address_pointer = 0
     program = input_data
     done = False
 
     coordinate = Coordinate(0,0)
+    COLOR[coordinate] = white()
     direction = 0
 
-    x = 0
     while not done:
-        print("Coordinate: {}".format(coordinate))
         set_color_input(coordinate)
-
         program, done, address_pointer = run_program(program, NON_INTERACTIVE_MODE, address_pointer)
         if done:
             break
         program, done, address_pointer = run_program(program, NON_INTERACTIVE_MODE, address_pointer)
-
         coordinate, direction = parse_program_output(coordinate, direction)
-
         
-        #x = x+1
-        #if x == 20:
-        #    break
-        
-
     print("A, len painted: {}, len color: {}".format(len(PAINTED), len(COLOR)))
 
 
 def b(input_data):
-    pass
+    
+    x_min = 999
+    x_max = -999
+    y_min = 999
+    y_max = -999
+
+    for coord in COLOR:
+        y_min = min(y_min, coord.y)
+        x_min = min(x_min, coord.x)
+        y_max = max(y_max, coord.y)
+        x_max = max(x_max, coord.x)
+
+    y_delta = -y_min
+    x_delta = -x_min
+
+    matrix = [["." for x in range(x_max + x_delta + 1)] for y in range(y_max + y_delta + 1)]
+    for y in range(y_min, y_max + 1 ):
+        for x in range(x_min, x_max + 1):
+            coord = Coordinate(x,y)
+            if coord in COLOR:
+                if COLOR[coord] == white():
+                    matrix[y+y_delta][x+x_delta] = "#"
+
+    for y in range(y_max + y_delta ,-1,-1):
+        print("".join(matrix[y]))
 
 if __name__ == '__main__':
     f = open("input.txt", "r")
     input_data = f.readline().split(',')
     input_data = [int(x) for x in input_data]
     PROGRAM_RELATIVE_BASE["default"] = 0
-
-    test = {}
-    hej = Coordinate(1,1)
-    test[hej] = 1
-
-    hej2 = Coordinate(1,2)
-
-    if hej2 in test:
-        print("YEAY")
-    else:
-        print("NEYYY")
 
     a(input_data.copy())
     b(input_data.copy())
