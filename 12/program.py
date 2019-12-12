@@ -3,9 +3,13 @@
 import math
 from collections import namedtuple
 
+class CoordinateContainer:
+    def __init__(self, coords):
+        self.content = coords
+
 Coordinate = namedtuple('Coordinate', 'x y z')
 
-VELOCITY_MAP = {}
+DELTA_V_MAP = {}
 COORDINATE_MAP = {}
 
 def add_coordinates(a, b):
@@ -15,55 +19,43 @@ def add_coordinates(a, b):
 
     return Coordinate(x,y,z)
 
+def calcualte_delta_v(coords):
+    sorted_coords = sorted(coords)
+    c_0 = sorted_coords[0]
+    c_1 = sorted_coords[1]
+    c_2 = sorted_coords[2]
+    c_3 = sorted_coords[3]
+
+    hashed = str(coords)
+    if hashed in DELTA_V_MAP:
+        delta_v =  DELTA_V_MAP[hashed] 
+    else:
+        delta_v =[]
+        old_0 = coords[0]
+        v0 = 3 * (old_0 == c_0) + (old_0 == c_1) - (old_0 == c_2) - 3 * (old_0 == c_3)
+
+        old_1 = coords[1]
+        v1 = 3 * (old_1 == c_0) + (old_1 == c_1) - (old_1 == c_2) - 3 * (old_1 == c_3)
+
+        old_2 = coords[2]
+        v2 = 3 * (old_2 == c_0) + (old_2 == c_1) - (old_2 == c_2) - 3 * (old_2 == c_3)
+
+        old_3 = coords[3]
+        v3 = 3 * (old_3 == c_0) + (old_3 == c_1) - (old_3 == c_2) - 3 * (old_3 == c_3) 
+
+        delta_v = [v0,v1,v2,v3]
+        hashed = str(coords)
+        DELTA_V_MAP[hashed] = delta_v
+
+    return delta_v
 
 def apply_gravity(coords, vels):
-    delta_v = []
-
-    if vels in VELOCITY_MAP:
-        return VELOCITY_MAP[vels]
-
-    for c1 in coords:
-        x_delta = 0
-        y_delta = 0
-        z_delta = 0
-        for c2 in coords:
-
-            if c1.x > c2.x:
-                x_delta = x_delta - 1
-            elif c1.x < c2.x:  
-                x_delta = x_delta + 1
-
-            if c1.y > c2.y:
-                y_delta = y_delta - 1
-            elif c1.y < c2.y:  
-                y_delta = y_delta + 1
-
-            if c1.z > c2.z:
-                z_delta = z_delta - 1
-            elif c1.z < c2.z:  
-                z_delta = z_delta + 1
-
-        delta_v.append(Coordinate(x_delta,y_delta,z_delta))
-
-    new_vels = []
-    for i in range(len(vels)):
-        new_vels.append(add_coordinates(vels[i], delta_v[i]))
-
-    VELOCITY_MAP[vels] = new_vels
-    return new_vels
+    delta_v = calcualte_delta_v(coords)
+    print("DELTA_V: {}".format(delta_v))
+    return [sum(x) for x in zip(vels, delta_v)]
 
 def apply_velocity(coords, vels):
-
-    if coords in COORDINATE_MAP:
-        return COORDINATE_MAP[coords]
-
-    new_coords = []
-    for i in range(len(coords)):
-        new_coords.append(add_coordinates(coords[i], vels[i]))
-
-    COORDINATE_MAP[coords] = coords
-    return new_coords
-
+    return [sum(x) for x in zip(coords, vels)]
 
 def a(start_coords, start_vels):
 
@@ -82,21 +74,55 @@ def a(start_coords, start_vels):
 
     print("A, answer: {}".format(energy_count))
     
-def b(start_coords, start_vels):
-    coords = start_coords
-    vels = start_vels
+def b():
+
+    x_coords = [-1,2,4,3]
+    y_coords = [0,-10,-8,5]
+    z_coords = [2,-7,8,1]
+
+    v_start = [0,0,0,0] 
     
-    while(True):
+
+    coords = y_coords
+    vels = v_start
+    i = 0
+    for a in range(10):
+        i = i + 1
+        print("coords: {}".format(coords))
         vels = apply_gravity(coords, vels)
         coords = apply_velocity(coords, vels)
 
-        if coords == start_coords and vels == start_vels:
+        if coords == y_coords and vels == v_start:
+            print("Y repeats after: {} iterations".format(i))
             break
+
+
+    coords = x_coords
+    vels = v_start
+
+    #i = 0
+    #while(True):
+    #    i = i + 1
+    #    vels = apply_gravity(coords, vels)
+    #    coords = apply_velocity(coords, vels)
+#
+#        if coords == x_coords and vels == v_start:
+#            print("X repeats after: {} iterations".format(i))
+#            break
+
+
+
         
 
 
         
 if __name__ == '__main__':
+
+
+    test1 = Coordinate(x=-1, y=0, z=2)
+    test2 = Coordinate(x=2, y=-10, z=-7)
+    test3 = Coordinate(x=4, y=-8, z=8)
+    test4 = Coordinate(x=3, y=5, z=-1)
 
     m1 = Coordinate(x=-10, y=-13, z=7)
     m2 = Coordinate(x=1, y=2, z=1)
@@ -109,12 +135,12 @@ if __name__ == '__main__':
     v4 = Coordinate(0, 0 ,0)
 
     coordinates = [m1, m2, m3, m4]
+    #coordinates = [test1, test2, test3, test4]
     velocities = [v1, v2, v3, v4]
 
     #a(coordinates, velocities)
-    #b(coordinates, velocities)
-
-    print(Coordinate(1,2,3) == Coordinate(1,2,3))
+    b()
+    
     
 
 
