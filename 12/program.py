@@ -12,6 +12,13 @@ Coordinate = namedtuple('Coordinate', 'x y z')
 DELTA_V_MAP = {}
 COORDINATE_MAP = {}
 
+def calculate_lcm(data):
+    lcm = data[0]
+    for i in data[1:]:
+        lcm = lcm * int(i/int(math.gcd(lcm, i)))
+    return lcm
+
+
 def add_coordinates(a, b):
     x = a.x + b.x
     y = a.y + b.y
@@ -20,30 +27,22 @@ def add_coordinates(a, b):
     return Coordinate(x,y,z)
 
 def calcualte_delta_v(coords):
-    sorted_coords = sorted(coords)
-    c_0 = sorted_coords[0]
-    c_1 = sorted_coords[1]
-    c_2 = sorted_coords[2]
-    c_3 = sorted_coords[3]
 
     hashed = str(coords)
     if hashed in DELTA_V_MAP:
         delta_v =  DELTA_V_MAP[hashed] 
     else:
-        delta_v =[]
-        old_0 = coords[0]
-        v0 = 3 * (old_0 == c_0) + (old_0 == c_1) - (old_0 == c_2) - 3 * (old_0 == c_3)
+        delta_v = []
+        for c1 in coords:
+            delta = 0
+            for c2 in coords:
 
-        old_1 = coords[1]
-        v1 = 3 * (old_1 == c_0) + (old_1 == c_1) - (old_1 == c_2) - 3 * (old_1 == c_3)
+                if c1 > c2:
+                    delta = delta - 1
+                elif c1 < c2:  
+                    delta = delta + 1
+            delta_v.append(delta)
 
-        old_2 = coords[2]
-        v2 = 3 * (old_2 == c_0) + (old_2 == c_1) - (old_2 == c_2) - 3 * (old_2 == c_3)
-
-        old_3 = coords[3]
-        v3 = 3 * (old_3 == c_0) + (old_3 == c_1) - (old_3 == c_2) - 3 * (old_3 == c_3) 
-
-        delta_v = [v0,v1,v2,v3]
         hashed = str(coords)
         DELTA_V_MAP[hashed] = delta_v
 
@@ -51,7 +50,7 @@ def calcualte_delta_v(coords):
 
 def apply_gravity(coords, vels):
     delta_v = calcualte_delta_v(coords)
-    print("DELTA_V: {}".format(delta_v))
+    #print("DELTA_V: {}".format(delta_v))
     return [sum(x) for x in zip(vels, delta_v)]
 
 def apply_velocity(coords, vels):
@@ -76,9 +75,13 @@ def a(start_coords, start_vels):
     
 def b():
 
-    x_coords = [-1,2,4,3]
-    y_coords = [0,-10,-8,5]
-    z_coords = [2,-7,8,1]
+    #x_coords = [-1,2,4,3]
+    #y_coords = [0,-10,-8,5]
+    #z_coords = [2,-7,8,-1]
+
+    x_coords = [-10,1,-15,3]
+    y_coords = [-13,2,-3,7]
+    z_coords = [7,1,13,-4]
 
     v_start = [0,0,0,0] 
     
@@ -86,29 +89,46 @@ def b():
     coords = y_coords
     vels = v_start
     i = 0
-    for a in range(10):
+    while(True):
         i = i + 1
         print("coords: {}".format(coords))
         vels = apply_gravity(coords, vels)
         coords = apply_velocity(coords, vels)
 
         if coords == y_coords and vels == v_start:
+            y_i = i
             print("Y repeats after: {} iterations".format(i))
             break
-
 
     coords = x_coords
     vels = v_start
 
-    #i = 0
-    #while(True):
-    #    i = i + 1
-    #    vels = apply_gravity(coords, vels)
-    #    coords = apply_velocity(coords, vels)
-#
-#        if coords == x_coords and vels == v_start:
-#            print("X repeats after: {} iterations".format(i))
-#            break
+    i = 0
+    while(True):
+        i = i + 1
+        vels = apply_gravity(coords, vels)
+        coords = apply_velocity(coords, vels)
+
+        if coords == x_coords and vels == v_start:
+            x_i = i
+            print("X repeats after: {} iterations".format(i))
+            break
+
+    coords = z_coords
+    vels = v_start
+
+    i = 0
+    while(True):
+        i = i + 1
+        vels = apply_gravity(coords, vels)
+        coords = apply_velocity(coords, vels)
+
+        if coords == z_coords and vels == v_start:
+            z_i = i
+            print("Z repeats after: {} iterations".format(i))
+            break
+    
+    print("B, answer: {}".format(calculate_lcm([x_i, y_i, z_i])))
 
 
 
