@@ -3,6 +3,7 @@
 import copy
 import queue
 from collections import namedtuple
+from time import sleep
 
 PROGRAM_START_ADDRESS=0
 OUTPUT_ADDRESS = 0
@@ -148,9 +149,11 @@ def get_program_output():
     return PROGRAM_OUTPUT_QUEUE.get()
 
 def add_program_input(item):
+    #print("ADDING INPUT: {}".format(item))
     return PROGRAM_INPUT_QUEUE.put(item)
 
 def get_program_input():
+    #print("GETTING INPUT")
     if PROGRAM_INPUT_QUEUE.empty():
         raise(RuntimeError("Input Queue is empty"))
     return PROGRAM_INPUT_QUEUE.get()
@@ -189,6 +192,12 @@ def run_instruction(program, address_pointer, op_code, parameter_modes, mode):
         address_pointer = address_pointer + get_address_pointer_increment(op_code)
 
     elif op_code is PROGRAM_INPUT_CODE:
+
+        game_program = parse_program_output()
+        parse_game(game_program)
+        update_position()
+        show_map()
+
         #dest = get_parameter_value(parameter_modes, 1, program, address_pointer)
         destination = read_data(program, address_pointer+1)
 
@@ -277,6 +286,10 @@ def run_program(program, mode, address_pointer=0):
             if input_received:
                 break
         elif op_code is PROGRAM_STOP_CODE:
+            game_program = parse_program_output()
+            parse_game(game_program)
+            update_position()
+            show_map()
             done = True
             break
         else:
@@ -287,6 +300,20 @@ def run_program(program, mode, address_pointer=0):
 Coordinate = namedtuple('Coordinate', 'x, y')
 OUTPUT_MAP = {}
 PROGRAM_DATA = {}
+
+def update_position():
+    ball_pos = PROGRAM_DATA["ball_x_position"]
+    player_pos = PROGRAM_DATA["player_x_pos"]
+    sleep(0.001)
+        
+    if ball_pos < player_pos: 
+        add_program_input(-1)
+    elif ball_pos > player_pos:
+        add_program_input(1)
+    else:
+        add_program_input(0)
+
+    #PROGRAM_DATA["ball_x_position_old"] = new_pos
 
 def parse_program_output():
     output = []
@@ -302,9 +329,12 @@ def draw(tile, x, y):
 
     if x == -1 and y == 0:
         PROGRAM_DATA["score"] = tile
-        print("SCORE: {}".format(tile))
     elif str(tile) in "01234":
         OUTPUT_MAP[c] = tile
+        if tile == 4:
+            PROGRAM_DATA["ball_x_position"] = x
+        if tile == 3:
+            PROGRAM_DATA["player_x_pos"] = x
     else:
         raise(RuntimeError("INVALID TILE: {}".format(tile)))
 
@@ -319,7 +349,6 @@ def parse_game(game_program):
     done = False
     x_max = 0
     y_max = 0
-    print("Parsing program with length: {}".format(len(game_program)))
     while not done:
         x = game_program[address_pointer]
         y = game_program[address_pointer+1]
@@ -345,7 +374,7 @@ def a(input_data):
     done = False
 
     while not done:
-        program, done, address_pointer = run_program(program, INTERACTIVE_MODE, address_pointer)
+        program, done, address_pointer = run_program(program, NON_INTERACTIVE_MODE, address_pointer)
     game_program = parse_program_output()
 
     parse_game(game_program)
@@ -358,7 +387,7 @@ def print_tile(tile):
     if tile == 0:
         return " "
     elif tile == 1:
-        return "-"
+        return "|"
     elif tile == 2:
         return "o"
     elif tile == 3:
@@ -369,16 +398,19 @@ def print_tile(tile):
 def show_map():
     x_max = PROGRAM_DATA["x_max"]
     y_max = PROGRAM_DATA["y_max"]
-    print("X_MAX: {}, Y_MAX: {}".format(x_max, y_max))
     matrix = [[" " for x in range(x_max+1)] for y in range(y_max+1)]
     # [y][x]
 
     for c, tile in OUTPUT_MAP.items():
         matrix[c.y][c.x] = print_tile(tile)
     
-    #for y in range(y_max,-1,-1):
     for y in range(y_max):
         print("".join(matrix[y]))
+    print("SCORE: {}".format(PROGRAM_DATA["score"]))
+    print("BALL_POSITION: {}, PLAYER_POSITION: {}, INPUT_QUEUE: {}".format(
+        PROGRAM_DATA["ball_x_position"],
+        PROGRAM_DATA["player_x_pos"],
+        PROGRAM_INPUT_QUEUE.qsize()))
 
 def b(input_data):
     address_pointer = 0
@@ -388,16 +420,13 @@ def b(input_data):
     program[0] = 2
     PROGRAM_DATA["x_max"] = 0
     PROGRAM_DATA["y_max"] = 0
-
-
+    #add_program_input(0)
+ 
     while not done:
-        program, done, address_pointer = run_program(program, INTERACTIVE_MODE, address_pointer)
-        game_program = parse_program_output()
-        parse_game(game_program)
-        show_map()
+        program, done, address_pointer = run_program(program, NON_INTERACTIVE_MODE, address_pointer)
+    show_map()
+        #update_position()
         #OUTPUT_MAP.clear()
-
-    print("GAME OVER: SCORE: {}".format(PROGRAM_DATA["score"]))
 
 if __name__ == '__main__':
     f = open("input.txt", "r")
